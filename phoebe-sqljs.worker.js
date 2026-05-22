@@ -1,4 +1,6 @@
-importScripts("/kotlin/sql-wasm.js");
+const workerUrl = new URL(self.location.href);
+
+importScripts(new URL("kotlin/sql-wasm.js", workerUrl).toString());
 
 const workerParams = new URL(self.location.href).searchParams;
 const isDebugBuild = workerParams.get("debug") === "1";
@@ -46,7 +48,9 @@ async function persistDatabase() {
 }
 
 async function createDatabase() {
-    const SQL = await initSqlJs({ locateFile: () => "/sql-wasm.wasm" });
+    const SQL = await initSqlJs({
+        locateFile: (fileName) => new URL(fileName, workerUrl).toString(),
+    });
     const persisted = await readPersistedDatabase();
     db = persisted ? new SQL.Database(persisted) : new SQL.Database();
 }
