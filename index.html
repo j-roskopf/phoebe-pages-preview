@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phoebe</title>
+    <style>
+        html, body, #composeApp {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #080B12;
+        }
+        /* Skiko draws to a full-viewport canvas; keep it dark until Compose paints. */
+        canvas {
+            background: #080B12;
+        }
+    </style>
+</head>
+<body>
+<div id="composeApp"></div>
+<script>
+    window.__onGCastApiAvailable = function(isAvailable) {
+        if (!isAvailable || !window.cast || !window.cast.framework) return;
+        window.cast.framework.CastContext.getInstance().setOptions({
+            receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+            autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+        });
+    };
+</script>
+<script async src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+<script src="phoebe.js"></script>
+</body>
+</html>
