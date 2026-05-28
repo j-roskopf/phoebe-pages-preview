@@ -6,10 +6,17 @@ const workerParams = new URL(self.location.href).searchParams;
 const isDebugBuild = workerParams.get("debug") === "1";
 const databaseName = isDebugBuild ? "phoebe-sql-debug" : "phoebe-sql";
 const storeName = "databases";
-const revisionParam = workerParams.get("revision") ?? "0";
+const legacyRevisionParam = workerParams.get("legacyRevision");
 const databaseKey = isDebugBuild
-    ? `phoebe-debug.db.v${revisionParam}.async`
-    : `phoebe.db.v${revisionParam}.async`;
+    ? "phoebe-debug.db.async"
+    : "phoebe.db.async";
+const legacyDatabaseKeys = legacyRevisionParam == null
+    ? []
+    : [
+        isDebugBuild
+            ? `phoebe-debug.db.v${legacyRevisionParam}.async`
+            : `phoebe.db.v${legacyRevisionParam}.async`,
+    ];
 
 let db = null;
 let transactionDepth = 0;
@@ -28,23 +35,38 @@ function openStore(mode) {
     });
 }
 
-async function readPersistedDatabase() {
+async function readDatabaseBytes(key) {
     const store = await openStore("readonly");
     return new Promise((resolve, reject) => {
-        const request = store.get(databaseKey);
+        const request = store.get(key);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve(request.result || null);
     });
 }
 
-async function persistDatabase() {
+async function writeDatabaseBytes(key, bytes) {
     const store = await openStore("readwrite");
-    const bytes = db.export();
     return new Promise((resolve, reject) => {
-        const request = store.put(bytes, databaseKey);
+        const request = store.put(bytes, key);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve();
     });
+}
+
+async function readPersistedDatabase() {
+    const current = await readDatabaseBytes(databaseKey);
+    if (current) return { bytes: current, fromLegacy: false };
+
+    for (const legacyKey of legacyDatabaseKeys) {
+        const legacy = await readDatabaseBytes(legacyKey);
+        if (legacy) return { bytes: legacy, fromLegacy: true };
+    }
+
+    return { bytes: null, fromLegacy: false };
+}
+
+async function persistDatabase() {
+    await writeDatabaseBytes(databaseKey, db.export());
 }
 
 async function createDatabase() {
@@ -52,7 +74,8 @@ async function createDatabase() {
         locateFile: (fileName) => new URL(fileName, workerUrl).toString(),
     });
     const persisted = await readPersistedDatabase();
-    db = persisted ? new SQL.Database(persisted) : new SQL.Database();
+    db = persisted.bytes ? new SQL.Database(persisted.bytes) : new SQL.Database();
+    if (persisted.fromLegacy) await persistDatabase();
 }
 
 function isWrite(sql) {
