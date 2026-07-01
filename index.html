@@ -25,11 +25,21 @@
 <div id="composeApp"></div>
 <script>
     window.__onGCastApiAvailable = function(isAvailable) {
-        if (!isAvailable || !window.cast || !window.cast.framework) return;
-        window.cast.framework.CastContext.getInstance().setOptions({
-            receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-            autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
-        });
+        try {
+            const castContext = window.cast && window.cast.framework && window.cast.framework.CastContext;
+            if (!isAvailable || !castContext || typeof castContext.getInstance !== "function") return;
+            const chromeCast = window.chrome && window.chrome.cast;
+            const options = {
+                receiverApplicationId:
+                    (chromeCast && chromeCast.media && chromeCast.media.DEFAULT_MEDIA_RECEIVER_APP_ID) ||
+                    "CC1AD845"
+            };
+            const autoJoinPolicy = chromeCast && chromeCast.AutoJoinPolicy && chromeCast.AutoJoinPolicy.ORIGIN_SCOPED;
+            if (autoJoinPolicy) options.autoJoinPolicy = autoJoinPolicy;
+            castContext.getInstance().setOptions(options);
+        } catch (error) {
+            console.warn("Phoebe Chromecast bootstrap failed.", error);
+        }
     };
 </script>
 <script async src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
